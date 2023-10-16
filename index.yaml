@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  jcrose:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2023-10-16T13:31:10.796660741+08:00"
+    description: A Helm chart for Kubernetes
+    digest: 226e96c1ae2392efaf3d36dfe9f2d759f1cce17fa0f2b9bcda9e335b716ced4c
+    name: jcrose
+    type: application
+    urls:
+    - https://qinlang258.github.io/helm-jcrose/jcrose-0.1.0.tgz
+    version: 0.1.0
+generated: "2023-10-16T13:31:10.79628163+08:00"
