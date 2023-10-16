@@ -1,0 +1,231 @@
+# Default values for rest-service. 0.1.1
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+# workload的类型, 可能值参见 https://kubernetes.io/zh-cn/docs/concepts/workloads/
+# 在该chart中, 当前仅支持 Deployment(默认值) 和 StatefulSet
+workloadKind: Deployment
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+# postfix: .rd.yunlizhi.cn
+hostName: chart-example-dev.dev.yunlizhi.cn
+
+app:
+  version: stable
+
+defaultImagePullSecrets:
+  enabled: true
+
+imagePullSecrets:
+  - name: harbor-ylz
+  - name: acr-ylz
+  - name: acr-credential-ylz
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# pod start command and args
+#  command -> docker entrypoint
+#  args -> docker cmd
+# https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#notes
+command: []
+args: []
+
+podAnnotations: {}
+
+podLabels: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+healthCheck:
+  # readiness and liveness check use the same path via http scheme
+  livenessPath: ""
+  readinessPath: ""
+  enabled: false
+  periodSeconds: 15
+  successThreshold: 1
+  failureThreshold: 3
+  timeoutSeconds: 5
+
+service:
+  type: ClusterIP
+  port: 8080
+  extend: []
+
+secretName: "ops-cn-tls-letsencrypt"
+
+ingress:
+  enabled: true
+  annotations: {}
+  tlsEnabled: false
+  internal:
+    enabled: true
+    host: chart-example-dev.yunlizhi.io
+    hosts: []
+    group: default-internal
+    tlsEnabled: false
+    secretName: "ops-cn-internal-tls"
+    annotations: {}
+  internet:
+    enabled: true
+    host: chart-example-dev.yunlizhi.cn
+    hosts: []
+    group: default
+    tlsEnabled: false
+    tlsOnly: false
+    secretName: "ops-cn-internet-tls"
+    httpToHttpsRedirectEnabled: false
+    annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+#  hosts:
+#    - host: chart-example.local
+#      paths: []
+#  tls:
+#    - secretName: *secretName_anchor
+#      hosts:
+#        - *hostName_anchor
+
+resources:
+  {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+#  limits:
+#    cpu: 500m
+#    memory: 256Mi
+#  requests:
+#    cpu: 200m
+#    memory: 256Mi
+
+lifecycle:
+  preStop:
+    enabled: false
+    command:
+      [
+        "/bin/sh",
+        "-c",
+        "nginx -s quit; while killall -0 nginx; do sleep 1; done",
+      ]
+  postStart:
+    enabled: false
+    command:
+      [
+        "/bin/sh",
+        "-c",
+        "echo Hello from the postStart handler > /usr/share/message",
+      ]
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podNotInSameAntiAffinity: true
+
+envs:
+  customer:
+    enabled: false
+    data: {}
+  configMap:
+    enabled: false
+    data: {}
+  secret:
+    enabled: false
+    data: {}
+
+volumes:
+  pvc:
+    enabled: false
+    configs: []
+  pvcDynamic:
+    enabled: false
+    configs: []
+  configMap:
+    enabled: false
+    configs: []
+  secret:
+    enabled: false
+    configs: []
+
+apollo:
+  enabled: false
+  env: dev
+  meta: apollo.apollo
+
+jmx:
+  enabled: false
+  port: 8081
+  authenticate: false
+  ssl: false
+
+jacocoagent:
+  enabled: false
+
+actuatorExporter:
+  enabled: false
+  port: 8080
+  path: "/actuator/prometheus"
+
+terminationGracePeriodSeconds: 30
+
+# --------------------------------------------------------- 以下是不赞成/被废弃的写法 --------------------
+
+# 不建议使用该方式了, 建议统一使用 envs和volumes的方式
+configs:
+  enabled: false
+  # config inject type: env, file
+  type: file
+  path: /configs # config mount path when type is file
+  data: {}
+#    DATABASE_ENGINE: django.db.backends.mysql
+#    config.keys: |
+#      enemies=aliens
+#      lives=3
+#      enemies.cheat=true
+#      enemies.cheat.level=noGoodRotten
+#      secret.code.passphrase=UUDDLRLRBABAS
+
+# 不建议使用该方式了, 建议统一使用 envs和volumes的方式
+persistence:
+  # persistent volume config
+  enabled: false
+  existingClaim: some-pvc-vol
+  mountPath: /
+  readOnly: false
+
+# 完整的k8s yaml文件定义, 只用于一些chart当前不支持的场景, 比如需要定义多个不同的外网ingress, 需要定义一个tcp的lb暴露服务等非常特殊的场景
+anyYamls: []

@@ -1,0 +1,40 @@
+categories:
+  - SERVICE
+questions:
+  - variable: image.repository
+    description: "镜像地址"
+    type: string
+    required: true
+  - variable: image.tag
+    description: "镜像地址"
+    type: string
+    required: true
+  - variable: hostName
+    description: "部署域名"
+    type: string
+    required: true
+  - variable: service.port
+    description: "端口"
+    type: int
+    required: true
+    default: 8080
+#  - variable: configs.enabled
+#    default: false
+#    type: boolean
+#    description: "使用配置"
+#    required: true
+#    show_subquestion_if: true
+#    subquestions:
+#      - variable: configs.type
+#        default: "env"
+#        type: enum
+#        options:
+#          - "env"
+#          - "file"
+#        required: true
+#        subquestions:
+#          - variable: configs.path
+#            description: "配置文件挂载路径"
+#            type: string
+#            default: "/configs"
+#            required: true

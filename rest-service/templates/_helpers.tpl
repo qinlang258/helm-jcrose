@@ -1,7 +1,8 @@
+{{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "qinlang.name" -}}
+{{- define "rest-service.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +11,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "qinlang.fullname" -}}
+{{- define "rest-service.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +27,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "qinlang.chart" -}}
+{{- define "rest-service.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "qinlang.labels" -}}
-helm.sh/chart: {{ include "qinlang.chart" . }}
-{{ include "qinlang.selectorLabels" . }}
+{{- define "rest-service.labels" -}}
+helm.sh/chart: {{ include "rest-service.chart" . }}
+{{ include "rest-service.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +46,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "qinlang.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "qinlang.name" . }}
+{{- define "rest-service.selectorLabels" -}}
+app.kubernetes.io/name: {{ .Release.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "qinlang.serviceAccountName" -}}
+{{- define "rest-service.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "qinlang.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "rest-service.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

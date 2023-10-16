@@ -1,0 +1,8 @@
+{{- /*
+任何其它的自定义的yaml文件
+*/}}
+
+{{- range .Values.anyYamls }}
+{{- toYaml . }}
+---
+{{- end }}

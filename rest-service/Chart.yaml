@@ -1,0 +1,7 @@
+apiVersion: v2
+appVersion: 0.0.1
+description: A Helm chart for rest service
+icon: https://spring.io/images/spring-logo-9146a4d3298760c2e7e49595184e1975.svg
+name: rest-service
+type: application
+version: v0.0.41
