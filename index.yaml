@@ -3,13 +3,25 @@ entries:
   rest-service:
   - apiVersion: v2
     appVersion: 0.0.1
-    created: "2023-10-17T14:28:15.849933205Z"
+    created: "2023-10-17T14:33:16.552090349Z"
     description: A Helm chart for rest service
-    digest: aae5abc618b69f56cedeb644a163dede68667ace3f8d8e69053304e2835d98e5
+    digest: 40dd05baee409b74c6b39d68e24673a4ec24030de52ee3f56be12798ee77b6c8
     icon: https://spring.io/images/spring-logo-9146a4d3298760c2e7e49595184e1975.svg
     name: rest-service
     type: application
     urls:
     - https://qinlang258.github.io/helm-jcrose/rest-service-v0.0.41.tgz
     version: v0.0.41
-generated: "2023-10-17T14:28:15.849265412Z"
+  test:
+  - apiVersion: v2
+    appVersion: 0.0.1
+    created: "2023-10-17T14:33:16.552755396Z"
+    description: A Helm chart for rest service
+    digest: 687504186991df4ad2db57cce400c525909d34ea3921f74eaeeb218e10537107
+    icon: https://spring.io/images/spring-logo-9146a4d3298760c2e7e49595184e1975.svg
+    name: test
+    type: application
+    urls:
+    - https://qinlang258.github.io/helm-jcrose/test-v0.0.1.tgz
+    version: v0.0.1
+generated: "2023-10-17T14:33:16.551305231Z"
