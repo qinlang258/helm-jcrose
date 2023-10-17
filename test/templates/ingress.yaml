@@ -1,0 +1,106 @@
+{{- /*
+如果是阿里云, 且使用的是老的hostName的写法
+注意, 出于向后兼容考虑, 老的hostName优先级高于新的兼容aws的写法
+*/}}
+
+{{- if and (and .Values.ingress.enabled (contains "aliyun" .Capabilities.KubeVersion.GitVersion)) (ne .Values.hostName "chart-example-dev.dev.yunlizhi.cn") -}}
+{{- $fullName := include "rest-service.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "rest-service.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  rules:
+    - host: {{ .Values.hostName | quote }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port: 
+                  number: {{ $svcPort }}
+  {{- if and .Values.ingress.tlsEnabled .Values.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.hostName | quote }}
+      secretName: {{ .Values.secretName }}
+  {{- end }}
+{{- end }}
+
+{{- /*
+如果是阿里云, 且使用的是 新的兼容aws的写法
+*/}}
+
+{{- if and (and .Values.ingress.enabled (contains "aliyun" .Capabilities.KubeVersion.GitVersion)) (eq .Values.hostName "chart-example-dev.dev.yunlizhi.cn") -}}
+{{- if .Values.ingress.internal.enabled -}}
+{{- $fullName := include "rest-service.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "rest-service.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.internal.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.healthCheck }}
+    {{- if and .enabled .livenessPath }}
+    prometheus.io/scrape-ylz: "true"         
+    prometheus.io/path: {{ .livenessPath | quote }}
+    {{- end }}
+    {{- end }}
+spec:
+  rules:
+    - host: {{ .Values.ingress.internal.host | quote }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port: 
+                  number: {{ $svcPort }}
+    {{- range .Values.ingress.internal.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $.Release.Name }}
+                port: 
+                  number: {{ $svcPort }}
+    {{- end }}
+  {{- if and .Values.ingress.internal.tlsEnabled .Values.ingress.internal.secretName }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.internal.host | quote }}
+        {{- range .Values.ingress.internal.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.internal.secretName }}
+  {{- end }}
+{{- end }}
+{{- end }}
+

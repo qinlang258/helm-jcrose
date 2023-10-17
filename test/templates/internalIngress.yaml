@@ -1,0 +1,62 @@
+{{- if and (and .Values.ingress.enabled .Values.ingress.internal.enabled)  (contains "eks" .Capabilities.KubeVersion.GitVersion) -}}
+{{- $fullName := include "rest-service.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: internal-{{ .Release.Name }}
+  labels:
+    {{- include "rest-service.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.internal.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.healthCheck }}
+    {{- if and .enabled .livenessPath }}
+    prometheus.io/scrape-ylz: "true"         
+    prometheus.io/path: {{ .livenessPath | quote }}
+    {{- end }}
+    {{- end }}
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.internal.group }}
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  rules:
+    - host: {{ .Values.ingress.internal.host | quote }}
+      http:
+        paths:
+        - pathType: ImplementationSpecific
+          backend:
+            service:
+                name: {{ .Release.Name }}
+                port: 
+                  number: {{ $svcPort }}
+    {{- range .Values.ingress.internal.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $.Release.Name }}
+                port: 
+                  number: {{ $svcPort }}
+    {{- end }}              
+  {{- if and .Values.ingress.internal.tlsEnabled .Values.ingress.internal.secretName }}
+  tls:
+    - hosts:
+      - {{ .Values.ingress.internal.host | quote }}
+      {{- range .Values.ingress.internal.hosts }}
+      - {{ . | quote }}
+      {{- end }}
+      secretName: {{ .Values.ingress.internal.secretName }}
+  {{- end }}
+{{- end }}

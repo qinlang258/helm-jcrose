@@ -1,0 +1,18 @@
+{{- /*
+因为value中 replicaCount 是float64类型, 但命令行的set又是int类型, 所以需要统一成int以便比较
+*/}}
+{{- if gt (.Values.replicaCount|int) 1 -}}
+{{- if .Capabilities.APIVersions.Has "policy/v1" -}}
+apiVersion: policy/v1
+{{- else -}}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "rest-service.selectorLabels" . | nindent 6 }}
+{{- end }}

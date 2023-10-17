@@ -1,0 +1,326 @@
+{{- if eq .Values.workloadKind "StatefulSet"  }}
+{{- $svcPort := .Values.service.port -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "rest-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- /*
+      sts更新的时候只允许带少量字段, 否则会报错 
+      updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy' and 'minReadySeconds' are forbidden
+  */}}
+  selector:
+    matchLabels:
+      {{- include "rest-service.selectorLabels" . | nindent 6 }}
+  serviceName: {{ .Release.Name }}-headless
+  
+  template:
+    metadata:
+      annotations:
+        rollme: {{ randAlphaNum 10 | quote }}
+        {{- if .Values.jmx.enabled }}
+        prometheus.io/scrape: {{ .Values.jmx.enabled | quote }}
+        prometheus.io/port: {{ .Values.jmx.port | quote }}
+        prometheus.io/path: '/metrics'
+        {{- end }}
+        {{- if .Values.actuatorExporter.enabled }}
+        prometheus.io/scrape: {{ .Values.actuatorExporter.enabled | quote }}
+        prometheus.io/port: {{ .Values.actuatorExporter.port | quote }}
+        prometheus.io/path: {{ .Values.actuatorExporter.path | quote }}
+        {{- end }}
+        {{- $enabledMetricAnnotations := false -}}
+        {{- range .Values.service.extend }}
+        {{- if .isMetrics  }}
+        {{- $enabledMetricAnnotations = true -}}
+        {{- end }}
+        {{- end }}
+        {{- if $enabledMetricAnnotations  }}
+        prometheus.io/scrape-ylz: "true"    
+        prometheus.io/path: {{  default "/metrics" .Values.service.metricsPath | quote }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "rest-service.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.jmx.enabled }}
+        app: jmx-exporter
+        {{- end }}
+        {{- if .Values.actuatorExporter.enabled }}
+        app: actuator-exporter
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "rest-service.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.command }}
+          command:
+            {{- toYaml .Values.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.args}}
+          args:
+            {{- toYaml .Values.args | nindent 12 }}
+          {{- end }}
+          env:
+          {{- if .Values.jmx.enabled }}
+            - name: ENV_JMX_ENABLED
+              value: {{ .Values.jmx.enabled | quote }}
+            - name: ENV_JMX_PORT
+              value: {{ .Values.jmx.port | quote }}
+            - name: ENV_JMX_SSL
+              value: {{ .Values.jmx.ssl | quote }}
+            - name: ENV_JMX_AUTHENTICATE
+              value: {{ .Values.jmx.authenticate | quote }}
+          {{- end }}
+          {{- if .Values.apollo.enabled }}
+            - name: ENV
+              value: {{ .Values.apollo.env }}
+            - name: APOLLO_META
+              value: "http://{{ .Values.apollo.meta }}"
+          {{- end }}
+          {{- if .Values.envs.customer.enabled }}
+          {{- range $k,$v := .Values.envs.customer.data }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+          {{- end }}
+          {{- end}}
+          volumeMounts:
+          {{- if .Values.persistence.enabled }}
+            - mountPath: {{ .Values.persistence.mountPath }}
+              name: {{ include "rest-service.fullname" . }}-vol
+              {{- if .Values.persistence.readOnly }}
+              readOnly: {{ .Values.persistence.readOnly }}
+              {{- end }}
+          {{- end }}
+          {{- if .Values.volumes.pvc.enabled }}
+          {{- range .Values.volumes.pvc.configs }}
+            - mountPath: {{ .mountPath }}
+              name: {{ .claimName }}-vol
+              {{- if .readOnly }}
+              readOnly: {{ .readOnly }}
+              {{- end }}
+          {{- end }}
+          {{- end }}
+          {{- if and .Values.configs.enabled (eq .Values.configs.type "file") }}
+            - mountPath: {{ .Values.configs.path }}
+              name: {{ include "rest-service.fullname" . }}-config
+          {{- end }}
+          {{- if .Values.volumes.configMap.enabled }}
+          {{- range $i,$volume := .Values.volumes.configMap.configs }}
+            - mountPath: {{ $volume.mountPath }}
+              name: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-config
+              {{- if $volume.readOnly }}
+              readOnly: {{ $volume.readOnly }}
+              {{- end }}
+              {{- if $volume.subPath }}
+              subPath: {{ $volume.subPath }}
+              {{- end }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.volumes.secret.enabled }}
+          {{- range $i,$volume := .Values.volumes.secret.configs }}
+            - mountPath: {{ $volume.mountPath }}
+              name: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-secret
+              {{- if $volume.readOnly }}
+              readOnly: {{ $volume.readOnly }}
+              {{- end }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.volumes.pvcDynamic.enabled }}
+          {{- range $i,$volume := .Values.volumes.pvcDynamic.configs }}
+            - mountPath: {{ $volume.mountPath }}
+              name: data{{ $i }}
+              {{- if $volume.readOnly }}
+              readOnly: {{ $volume.readOnly }}
+              {{- end }}
+          {{- end }}
+          {{- end }}
+          envFrom:
+          {{- if and .Values.configs.enabled (eq .Values.configs.type "env") }}
+            - configMapRef:
+                name: {{ include "rest-service.fullname" . }}-config
+          {{- end }}
+          {{- if .Values.envs.configMap.enabled }}
+            - configMapRef:
+                name: {{ include "rest-service.fullname" . }}-env-config
+          {{- end }}
+          {{- if .Values.envs.secret.enabled }}
+            - secretRef:
+                name: {{ include "rest-service.fullname" . }}-env-secret
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $svcPort }}
+              protocol: TCP
+            {{- if .Values.jmx.enabled }}
+            - name: jmx-http
+              containerPort: {{ .Values.jmx.port }}
+              protocol: TCP
+            {{- end }}
+            {{- range $i,$portInfo := .Values.service.extend }}
+            {{- if  .isMetrics }}
+            - name: {{ printf "y%v-%s" $i .name | trunc 15 | trimSuffix "-" }}
+              containerPort: {{ .port }}
+              protocol: {{ default "TCP" .protocol }}
+            {{- else }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ default "TCP" .protocol }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.healthCheck }}
+          {{- if and .enabled .livenessPath }}
+          startupProbe:
+            httpGet:
+              path: {{ .livenessPath }}
+              port: http
+            failureThreshold: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .livenessPath }}
+              port: http
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+            successThreshold: {{ .successThreshold }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+          {{- end }}
+          {{- if and .enabled .readinessPath }}
+          readinessProbe:
+            httpGet:
+              path: {{ .readinessPath }}
+              port: http
+            periodSeconds: {{ .periodSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+            successThreshold: {{ .successThreshold }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+          {{- end }}
+          {{- end }}
+          lifecycle:
+          {{- if .Values.lifecycle.postStart.enabled }}
+            postStart:
+              exec:
+                command:
+                  {{- toYaml .Values.lifecycle.postStart.command | nindent 18 }}
+            {{- end }}
+          {{- if .Values.lifecycle.preStop.enabled }}
+            preStop:
+              exec:
+                command:
+                  {{- toYaml .Values.lifecycle.preStop.command | nindent 18 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.configs.enabled }}
+        {{- if eq .Values.configs.type "file" }}
+        - name: {{ include "rest-service.fullname" . }}-config
+          configMap:
+            name: {{ include "rest-service.fullname" . }}-config
+        {{- end }}
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: {{ include "rest-service.fullname" . }}-vol
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- end }}
+        {{- if .Values.volumes.pvc.enabled }}
+        {{- range .Values.volumes.pvc.configs }}
+        - name: {{ .claimName }}-vol
+          persistentVolumeClaim:
+            claimName: {{ .claimName }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.volumes.configMap.enabled }}
+        {{- range $i, $volume := .Values.volumes.configMap.configs }}
+        - name: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-config
+          configMap:
+            {{- if $volume.defaultMode }}
+            defaultMode: {{ $volume.defaultMode }}
+            {{- end }}
+            name: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-config
+        {{- end }}
+        {{- end }}
+        {{- if .Values.volumes.secret.enabled }}
+        {{- range $i, $volume := .Values.volumes.secret.configs }}
+        - name: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-secret
+          secret:
+            {{- if $volume.defaultMode }}
+            defaultMode: {{ $volume.defaultMode }}
+            {{- end }}
+            secretName: {{ include "rest-service.fullname" $ }}-vol{{ $i }}-secret
+        {{- end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+      {{- if .Values.affinity }}
+        {{- with .Values.affinity }}
+           {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.podNotInSameAntiAffinity }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - {{ .Release.Name }}
+              - key: app.kubernetes.io/instance
+                operator: In
+                values:
+                - {{ .Release.Name }}
+            topologyKey: kubernetes.io/hostname
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+  {{- if and .Values.volumes.pvcDynamic.enabled}}
+  volumeClaimTemplates:
+    {{- range $i,$volume := .Values.volumes.pvcDynamic.configs }}
+    - metadata:
+        name: data{{ $i }}
+        annotations:
+        {{- range $key, $value := $volume.annotations }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+      spec:
+        accessModes:
+        {{- range $volume.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $volume.size | quote }}
+      {{- if $volume.storageClass }}
+      {{- if (eq "-" $volume.storageClass) }}
+        storageClassName: ""
+      {{- else }}
+        storageClassName: {{ $volume.storageClass | quote }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+  {{- end }}
+{{- end }}
