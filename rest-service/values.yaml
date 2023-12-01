@@ -27,6 +27,7 @@ imagePullSecrets:
   - name: harbor-ylz
   - name: acr-ylz
   - name: acr-credential-ylz
+  - name: qinlang-acr  
 
 serviceAccount:
   # Specifies whether a service account should be created
